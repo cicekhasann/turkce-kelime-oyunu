@@ -69,12 +69,17 @@ export function App() {
     return "Arkadaş Grubuna Özel";
   }, [route, tokenConfig]);
 
+  const isGameView =
+    (route.mode === "token" && tokenConfig !== null) || route.mode === "daily";
+
   return (
     <div
-      className={`flex min-h-dvh flex-col text-zinc-100 transition-colors duration-300 ${
+      className={`flex flex-col text-zinc-100 transition-colors duration-300 ${
+        isGameView ? "h-dvh overflow-hidden" : "min-h-dvh"
+      } ${
         funMode
-          ? "bg-[radial-gradient(ellipse_at_top,_#2b125a_0%,_#110a26_55%,_#090714_100%)]"
-          : "bg-[#0e1015]"
+          ? "bg-[#060913] bg-cyber-grid"
+          : "bg-[#0b0d13]"
       }`}
     >
       <Header
@@ -87,11 +92,12 @@ export function App() {
         isDaily={route.mode === "daily"}
       />
 
-      <main className="flex flex-1 flex-col">
+      <main className={`flex flex-1 flex-col ${isGameView ? "min-h-0" : ""}`}>
         {route.mode === "setup" && (
           <GameSetup
             onStartToken={navigateToToken}
             onStartDaily={navigateToDaily}
+            funMode={funMode}
           />
         )}
 
@@ -435,7 +441,7 @@ function ActiveGame({
   const isWarning = remainingSec !== null && remainingSec <= 25 && !isUrgent && status === "playing";
 
   return (
-    <div className="relative mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-between px-2 py-2 sm:justify-center sm:gap-5 sm:px-4 sm:py-6">
+    <div className="relative mx-auto flex h-full w-full max-w-2xl flex-1 min-h-0 flex-col items-center justify-between gap-2 px-2 py-2 sm:gap-3 sm:px-4 sm:py-3">
       <ConfettiBurst active={celebrating} />
 
       {/* Bildirim Toast */}
@@ -447,9 +453,9 @@ function ActiveGame({
 
       {/* Üst Bilgi Çubuğu (HUD) */}
       <div
-        className={`flex w-full max-w-xl items-center justify-between rounded-xl border px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm shadow-sm transition-colors ${
+        className={`flex shrink-0 w-full max-w-xl items-center justify-between rounded-xl border px-3.5 py-2 sm:px-4 text-xs sm:text-sm shadow-sm transition-colors ${
           funMode
-            ? "border-purple-500/30 bg-[#1a103a]/90"
+            ? "border-cyan-500/30 bg-[#090d1c]/90 backdrop-blur-sm"
             : "border-zinc-800/90 bg-[#13161f]/90"
         }`}
       >
@@ -466,7 +472,9 @@ function ActiveGame({
               ? "animate-pulse bg-rose-500/20 text-rose-400 border border-rose-500/40"
               : isWarning
                 ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                : "bg-zinc-900 text-emerald-400 border border-zinc-800"
+                : funMode
+                  ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/30"
+                  : "bg-zinc-900 text-emerald-400 border border-zinc-800"
           }`}
         >
           <Clock className="h-3.5 w-3.5" />
@@ -506,7 +514,7 @@ function ActiveGame({
           {wordLength} harfli Türkçe sözlük yükleniyor...
         </div>
       ) : (
-        <div className="flex w-full flex-col items-center justify-center">
+        <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-center">
           <GameBoard
             wordLength={wordLength}
             maxAttempts={config.maxAttempts}
@@ -521,7 +529,7 @@ function ActiveGame({
             <button
               type="button"
               onClick={() => setResultOpen(true)}
-              className="mt-3 flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 cursor-pointer"
+              className="mt-2 shrink-0 flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 cursor-pointer"
             >
               <Trophy className="h-3.5 w-3.5" />
               <span>Sonucu Göster / Paylaş</span>

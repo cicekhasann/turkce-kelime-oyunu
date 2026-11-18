@@ -13,9 +13,10 @@ import {
 interface GameSetupProps {
   onStartToken: (token: string) => void;
   onStartDaily: () => void;
+  funMode?: boolean;
 }
 
-export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
+export function GameSetup({ onStartToken, onStartDaily, funMode = false }: GameSetupProps) {
   const [mode, setMode] = useState<"custom" | "random">("custom");
   const [customWord, setCustomWord] = useState("");
   const [showWord, setShowWord] = useState(false);
@@ -39,18 +40,13 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
   const activeWord = mode === "custom" ? customWord : randomWord;
   const activeLength = Array.from(activeWord).length;
 
-  // Harf sayısı değiştikçe hak sayısını otomatik orantıla (harf + 1), kullanıcı elle değiştirmediyse
   useEffect(() => {
     if (attemptsTouched) return;
     const targetLen = mode === "random" ? randomLength : activeLength || 5;
-    const clamped = Math.min(
-      MAX_ATTEMPTS,
-      Math.max(MIN_ATTEMPTS, targetLen + 1)
-    );
+    const clamped = Math.min(MAX_ATTEMPTS, Math.max(MIN_ATTEMPTS, targetLen + 1));
     setMaxAttempts(clamped);
   }, [mode, randomLength, activeLength, attemptsTouched]);
 
-  // Özel kelime yazıldığında sözlükte olup olmadığını kontrol et
   useEffect(() => {
     if (mode !== "custom") {
       setInDictionary(null);
@@ -64,9 +60,7 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
     let cancelled = false;
     loadWordList(activeLength)
       .then(({ allowedSet }) => {
-        if (!cancelled) {
-          setInDictionary(allowedSet.has(customWord));
-        }
+        if (!cancelled) setInDictionary(allowedSet.has(customWord));
       })
       .catch(() => {
         if (!cancelled) setInDictionary(null);
@@ -161,33 +155,58 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-6 sm:py-8 space-y-4">
-      {/* Günün Kelimesi Hızlı Başlat Kartı */}
+      {/* Günün Kelimesi */}
       <button
         type="button"
         onClick={onStartDaily}
-        className="flex w-full items-center justify-between rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent p-4 text-left transition hover:border-amber-400/50 hover:from-amber-500/20 cursor-pointer"
+        className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition cursor-pointer ${
+          funMode
+            ? "border-cyan-400/35 bg-gradient-to-r from-cyan-500/15 via-fuchsia-500/10 to-transparent hover:border-cyan-300/60 shadow-[0_0_24px_rgba(34,211,238,0.1)]"
+            : "border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent hover:border-amber-400/50"
+        }`}
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+              funMode
+                ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-300"
+                : "border-amber-500/30 bg-amber-500/20 text-amber-300"
+            }`}
+          >
             <CalendarDays className="h-5 w-5" />
           </div>
           <div>
-            <div className="text-sm font-bold text-zinc-100">
-              Günün Kelimesini Oyna
-            </div>
+            <div className="text-sm font-bold text-zinc-100">Günün Kelimesini Oyna</div>
             <div className="text-xs text-zinc-400">
               Herkes için ortak, her gün yenilenen 5 harfli Türkçe kelime
             </div>
           </div>
         </div>
-        <span className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-zinc-950">
+        <span
+          className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-950 ${
+            funMode ? "bg-cyan-400" : "bg-amber-500"
+          }`}
+        >
           Oyna
         </span>
       </button>
 
-      <div className="rounded-2xl border border-zinc-800 bg-[#13161f] p-5 shadow-xl sm:p-6">
+      {/* Oyun Kurma Kartı */}
+      <div
+        className={`rounded-2xl border p-5 shadow-xl sm:p-6 backdrop-blur-sm ${
+          funMode
+            ? "border-cyan-500/25 bg-[#090d1c]/90 shadow-[0_0_40px_rgba(34,211,238,0.08)]"
+            : "border-zinc-800 bg-[#13161f]"
+        }`}
+      >
         <div className="mb-5">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400">
+          <div
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
+              funMode
+                ? "border-cyan-400/35 bg-cyan-500/10 text-cyan-300"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+            }`}
+          >
             <Sparkles className="h-3 w-3" />
             <span>Sunucusuz & Şifreli Link</span>
           </div>
@@ -200,7 +219,7 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
         </div>
 
         {/* Mod Seçimi */}
-        <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-zinc-900/80 p-1 border border-zinc-800">
+        <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl border border-zinc-800 bg-zinc-900/80 p-1">
           <button
             type="button"
             onClick={() => {
@@ -233,19 +252,14 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
           </button>
         </div>
 
-        {/* Kelime Giriş / Rastgele Seçim Alanı */}
+        {/* Kelime Giriş / Rastgele Seçim */}
         {mode === "custom" ? (
           <div className="mb-5 space-y-2">
             <div className="flex items-center justify-between">
-              <label
-                htmlFor="custom-word"
-                className="text-xs font-medium text-zinc-300"
-              >
+              <label htmlFor="custom-word" className="text-xs font-medium text-zinc-300">
                 Hedef Kelime ({MIN_WORD_LENGTH}-{MAX_WORD_LENGTH} Harf)
               </label>
-              <span className="font-mono text-[11px] text-zinc-400">
-                {activeLength} harf
-              </span>
+              <span className="font-mono text-[11px] text-zinc-400">{activeLength} harf</span>
             </div>
             <div className="relative">
               <input
@@ -264,18 +278,13 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
                 aria-label={showWord ? "Kelimeyi gizle" : "Kelimeyi göster"}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-200 cursor-pointer"
               >
-                {showWord ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
+                {showWord ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
             {strictDictionary && inDictionary === false && (
               <p className="text-[11px] text-amber-400/90">
-                Bu kelime sözlükte bulunmuyor. Sözlük zorunluluğu açıkken oyunu
-                başlatamazsın; aşağıdaki &quot;Sözlük Zorunluluğu&quot; seçeneğini
-                kapatabilir veya sözlükte olan bir kelime yazabilirsin.
+                Bu kelime sözlükte bulunmuyor. Sözlük zorunluluğu açıkken başlatamazsın;
+                aşağıdaki seçeneği kapatabilir veya sözlükte olan bir kelime yazabilirsin.
               </p>
             )}
           </div>
@@ -324,11 +333,7 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
                   aria-label="Göster/Gizle"
                   className="rounded-lg border border-zinc-700 bg-zinc-800 p-2 text-zinc-300 hover:bg-zinc-700 cursor-pointer"
                 >
-                  {showWord ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showWord ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
                 <button
                   type="button"
@@ -347,12 +352,8 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
         {/* Hak Sayısı */}
         <div className="mb-4 space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-zinc-300">
-              Tahmin Hakkı Sayısı
-            </label>
-            <span className="font-mono text-xs font-bold text-emerald-400">
-              {maxAttempts} Hak
-            </span>
+            <label className="text-xs font-medium text-zinc-300">Tahmin Hakkı Sayısı</label>
+            <span className="font-mono text-xs font-bold text-emerald-400">{maxAttempts} Hak</span>
           </div>
           <input
             type="range"
@@ -412,19 +413,14 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
           </div>
         </div>
 
-        {/* Kazanma Mesajı (Opsiyonel) */}
+        {/* Kazanma Mesajı */}
         <div className="mb-4 space-y-1.5">
           <div className="flex items-center justify-between">
-            <label
-              htmlFor="win-message"
-              className="flex items-center gap-1.5 text-xs font-medium text-zinc-300"
-            >
+            <label htmlFor="win-message" className="flex items-center gap-1.5 text-xs font-medium text-zinc-300">
               <MessageSquareHeart className="h-3.5 w-3.5 text-emerald-400" />
               Başarılı Olursa Mesaj (Opsiyonel)
             </label>
-            <span className="font-mono text-[10px] text-zinc-500">
-              {winMessage.length}/140
-            </span>
+            <span className="font-mono text-[10px] text-zinc-500">{winMessage.length}/140</span>
           </div>
           <input
             id="win-message"
@@ -443,9 +439,7 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
         {/* Sözlük Zorunluluğu */}
         <label className="mb-3 flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-3.5 py-3">
           <div>
-            <div className="text-xs font-semibold text-zinc-200">
-              Sözlük Zorunluluğu
-            </div>
+            <div className="text-xs font-semibold text-zinc-200">Sözlük Zorunluluğu</div>
             <div className="mt-0.5 text-[11px] text-zinc-400">
               Açıkken yalnızca sözlükteki gerçek Türkçe kelimeler kabul edilir.
             </div>
@@ -462,12 +456,10 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
           />
         </label>
 
-        {/* Bilemezse Cevabı Gizle Modu */}
+        {/* Bilemezse Cevabı Gizle */}
         <label className="mb-3 flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-3.5 py-3">
           <div>
-            <div className="text-xs font-semibold text-zinc-200">
-              Bilemezse Cevabı Gizle
-            </div>
+            <div className="text-xs font-semibold text-zinc-200">Bilemezse Cevabı Gizle</div>
             <div className="mt-0.5 text-[11px] text-zinc-400">
               Açıkken oyuncu hakları dolduğunda bile doğru kelime gösterilmez.
             </div>
@@ -486,9 +478,7 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
         {/* Zor Mod */}
         <label className="mb-5 flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-3.5 py-3">
           <div>
-            <div className="text-xs font-semibold text-zinc-200">
-              Zor Mod (Hard Mode)
-            </div>
+            <div className="text-xs font-semibold text-zinc-200">Zor Mod (Hard Mode)</div>
             <div className="mt-0.5 text-[11px] text-zinc-400">
               Açığa çıkan yeşil ve sarı harfler sonraki tahminlerde kullanılmalıdır.
             </div>
@@ -513,18 +503,19 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
         <button
           type="button"
           onClick={handleGenerate}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-zinc-950 transition hover:bg-emerald-400 active:scale-[0.99] cursor-pointer"
+          className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-zinc-950 transition active:scale-[0.99] cursor-pointer ${
+            funMode
+              ? "bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-[0_0_20px_rgba(34,211,238,0.25)]"
+              : "bg-emerald-500 hover:bg-emerald-400"
+          }`}
         >
           <Link2 className="h-4 w-4" />
           <span>Şifreli Oyun Linki Oluştur</span>
         </button>
 
-        {/* Oluşan Link Kutusu */}
         {generatedToken && (
           <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-3">
-            <div className="text-xs font-semibold text-emerald-400">
-              Oyun Linki Hazır!
-            </div>
+            <div className="text-xs font-semibold text-emerald-400">Oyun Linki Hazır!</div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -538,17 +529,8 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
                 onClick={handleCopy}
                 className="flex shrink-0 items-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-zinc-700 cursor-pointer"
               >
-                {copied ? (
-                  <>
-                    <Check className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>Kopyalandı</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3.5 w-3.5" />
-                    <span>Kopyala</span>
-                  </>
-                )}
+                {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                <span>{copied ? "Kopyalandı" : "Kopyala"}</span>
               </button>
             </div>
             <button
@@ -565,4 +547,3 @@ export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
     </div>
   );
 }
-

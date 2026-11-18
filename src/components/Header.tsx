@@ -21,10 +21,10 @@ export function Header({
 }: HeaderProps) {
   return (
     <header
-      className={`w-full border-b backdrop-blur-md transition-colors duration-300 ${
+      className={`w-full shrink-0 border-b backdrop-blur-md transition-colors duration-300 ${
         funMode
-          ? "border-purple-500/30 bg-[#140b2e]/90"
-          : "border-zinc-800/80 bg-[#0e1015]/90"
+          ? "border-cyan-500/25 bg-[#070914]/90"
+          : "border-zinc-800/80 bg-[#0b0d13]/90"
       }`}
     >
       <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-3 sm:px-4">
@@ -32,7 +32,7 @@ export function Header({
           <div
             className={`flex h-8 w-8 items-center justify-center rounded-lg font-bold shadow-sm transition-all ${
               funMode
-                ? "rounded-xl bg-gradient-to-br from-fuchsia-500 to-emerald-400 text-zinc-950 shadow-[0_0_14px_rgba(217,70,239,0.5)]"
+                ? "rounded-xl bg-gradient-to-br from-cyan-400 via-fuchsia-500 to-emerald-400 text-zinc-950 shadow-[0_0_16px_rgba(34,211,238,0.45)]"
                 : "bg-emerald-500 text-zinc-950"
             }`}
           >
@@ -55,14 +55,14 @@ export function Header({
             type="button"
             onClick={onToggleFunMode}
             aria-pressed={funMode}
-            title={funMode ? "Klasik görünüme dön" : "Fun Mode görünümünü aç"}
+            title={funMode ? "Modern koyu görünüme dön" : "Fütüristik Neon (Fun Mode)"}
             className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition cursor-pointer ${
               funMode
-                ? "border-fuchsia-400/70 bg-gradient-to-r from-fuchsia-500/25 to-emerald-500/20 text-fuchsia-100 shadow-[0_0_16px_rgba(217,70,239,0.45)]"
-                : "border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-200 hover:bg-fuchsia-500/20 animate-fun-glow"
+                ? "border-cyan-400/70 bg-gradient-to-r from-cyan-500/25 via-fuchsia-500/20 to-emerald-500/20 text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,0.4)]"
+                : "border-cyan-500/40 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 animate-fun-glow"
             }`}
           >
-            <Sparkles className="h-3.5 w-3.5 text-fuchsia-300" />
+            <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
             <span className="hidden sm:inline">Fun Mode</span>
           </button>
 

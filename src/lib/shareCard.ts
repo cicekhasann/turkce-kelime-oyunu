@@ -12,11 +12,18 @@ interface ShareCardOptions {
   funMode?: boolean;
 }
 
-const TILE_COLORS: Record<LetterState, { fill: string; border: string }> = {
+const CLASSIC_TILE_COLORS: Record<LetterState, { fill: string; border: string }> = {
   correct: { fill: "#10b981", border: "#34d399" },
   present: { fill: "#f59e0b", border: "#fbbf24" },
   absent: { fill: "#27272a", border: "#3f3f46" },
   empty: { fill: "#18181b", border: "#27272a" },
+};
+
+const FUN_TILE_COLORS: Record<LetterState, { fill: string; border: string }> = {
+  correct: { fill: "#10b981", border: "#34d399" },
+  present: { fill: "#f59e0b", border: "#fbbf24" },
+  absent: { fill: "#1e293b", border: "#334155" },
+  empty: { fill: "#0f172a", border: "#1e293b" },
 };
 
 function drawRoundedRect(
@@ -71,24 +78,16 @@ export async function generateShareCardBlob(opts: ShareCardOptions): Promise<Blo
   if (!ctx) throw new Error("Canvas desteklenmiyor.");
 
   // Arka plan
-  if (funMode) {
-    const grad = ctx.createLinearGradient(0, 0, width, height);
-    grad.addColorStop(0, "#140b2e");
-    grad.addColorStop(0.5, "#1b103f");
-    grad.addColorStop(1, "#0f172a");
-    ctx.fillStyle = grad;
-  } else {
-    ctx.fillStyle = "#0e1015";
-  }
+  ctx.fillStyle = funMode ? "#060913" : "#0b0d13";
   ctx.fillRect(0, 0, width, height);
 
   // İç kart çerçevesi
   const cardPad = 24;
   drawRoundedRect(ctx, cardPad, cardPad, width - cardPad * 2, height - cardPad * 2, 24);
-  ctx.fillStyle = funMode ? "rgba(25, 16, 56, 0.9)" : "#13161f";
+  ctx.fillStyle = funMode ? "#090d1c" : "#13161f";
   ctx.fill();
   ctx.lineWidth = 2;
-  ctx.strokeStyle = funMode ? "rgba(168, 85, 247, 0.35)" : "#27272a";
+  ctx.strokeStyle = funMode ? "rgba(34, 211, 238, 0.4)" : "#27272a";
   ctx.stroke();
 
   // Başlık: KELİMELE
@@ -106,20 +105,21 @@ export async function generateShareCardBlob(opts: ShareCardOptions): Promise<Blo
     hardMode ? "Zor Mod" : null,
   ].filter(Boolean);
 
-  ctx.fillStyle = won ? "#34d399" : "#fb7185";
+  ctx.fillStyle = won ? (funMode ? "#22d3ee" : "#34d399") : "#fb7185";
   ctx.font = "600 18px ui-monospace, SFMono-Regular, monospace";
   ctx.fillText(parts.join("  •  "), width / 2, 112);
 
   // Spoiler'sız renkli kareler
   const startX = (width - gridWidth) / 2;
   const startY = 148;
+  const paletteMap = funMode ? FUN_TILE_COLORS : CLASSIC_TILE_COLORS;
 
   guesses.forEach((guess, rIdx) => {
     const states = evaluateGuess(guess, target);
     states.forEach((state, cIdx) => {
       const x = startX + cIdx * (tileSize + gap);
       const y = startY + rIdx * (tileSize + gap);
-      const palette = TILE_COLORS[state];
+      const palette = paletteMap[state];
 
       drawRoundedRect(ctx, x, y, tileSize, tileSize, funMode ? 14 : 10);
       ctx.fillStyle = palette.fill;

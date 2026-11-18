@@ -42,7 +42,12 @@ const MINI_TILE_CLASSES: Record<LetterState, string> = {
   empty: "bg-zinc-900 text-zinc-500 border-zinc-800",
 };
 
-function getWittyTitle(won: boolean, timedOut: boolean | undefined, attemptCount: number, maxAttempts: number): string {
+function getWittyTitle(
+  won: boolean,
+  timedOut: boolean | undefined,
+  attemptCount: number,
+  maxAttempts: number
+): string {
   if (!won) {
     if (timedOut) return "Zaman Su Gibi Aktı! ⏳";
     return "Çok Yaklaşmıştın!";
@@ -152,7 +157,7 @@ export function ResultModal({
           setTimeout(() => setCardStatus("idle"), 2500);
           return;
         } catch {
-          // Tarayıcı izin vermezse indirmeye düş
+          // İndirmeye düş
         }
       }
 
@@ -177,7 +182,11 @@ export function ResultModal({
       onClick={onClose}
     >
       <div
-        className="relative my-auto w-full max-w-md rounded-2xl border border-zinc-800 bg-[#13161f] p-5 sm:p-6 text-center shadow-2xl"
+        className={`relative my-auto w-full max-w-md rounded-2xl border p-5 sm:p-6 text-center shadow-2xl ${
+          funMode
+            ? "border-cyan-500/30 bg-[#090d1c] shadow-[0_0_50px_rgba(34,211,238,0.15)]"
+            : "border-zinc-800 bg-[#13161f]"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -189,7 +198,7 @@ export function ResultModal({
           <X className="h-4 w-4" />
         </button>
 
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900">
           {won ? (
             <Trophy className="h-6 w-6 text-emerald-400" />
           ) : (
@@ -206,20 +215,16 @@ export function ResultModal({
               : `${maxAttempts} tahmin hakkı kullanıldı.`}
         </p>
 
-        {/* Kurucudan Gizli Mesaj */}
         {won && winMessage && (
           <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-left">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400">
               <MessageSquareHeart className="h-3.5 w-3.5" />
               <span>Oyunu Kuranın Mesajı</span>
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-zinc-100">
-              {winMessage}
-            </p>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-100">{winMessage}</p>
           </div>
         )}
 
-        {/* Hedef Kelime + TDK Anlamı */}
         <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/80 p-3.5 text-left">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
@@ -255,16 +260,12 @@ export function ResultModal({
                   {targetWord}
                 </span>
                 {tdk?.origin && (
-                  <span className="text-[11px] italic text-zinc-500">
-                    ({tdk.origin})
-                  </span>
+                  <span className="text-[11px] italic text-zinc-500">({tdk.origin})</span>
                 )}
               </div>
 
               {tdkLoading ? (
-                <p className="mt-1.5 text-[11px] text-zinc-500">
-                  TDK anlamı getiriliyor...
-                </p>
+                <p className="mt-1.5 text-[11px] text-zinc-500">TDK anlamı getiriliyor...</p>
               ) : tdk && tdk.meanings.length > 0 ? (
                 <div className="mt-2 space-y-1 border-t border-zinc-800/80 pt-2">
                   {tdk.meanings.map((m, i) => (
@@ -278,15 +279,12 @@ export function ResultModal({
                   ))}
                 </div>
               ) : (
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  Sözlük tanımı alınamadı.
-                </p>
+                <p className="mt-1 text-[11px] text-zinc-500">Sözlük tanımı alınamadı.</p>
               )}
             </>
           )}
         </div>
 
-        {/* Şık Tahmin Geçmişi (Kelimeler + Renkli Kutucuklar) */}
         {guesses.length > 0 && (
           <div className="mt-4 rounded-xl border border-zinc-800/90 bg-zinc-950/70 p-3">
             <div className="mb-2 flex items-center justify-between text-[10px] font-medium uppercase tracking-wider text-zinc-500">
@@ -357,17 +355,8 @@ export function ResultModal({
             onClick={handleShareText}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 py-2 text-xs font-semibold text-zinc-300 transition hover:bg-zinc-800 cursor-pointer"
           >
-            {copiedText ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
-                <span>Metin Panoya Kopyalandı!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5" />
-                <span>Metin / Emoji Olarak Kopyala</span>
-              </>
-            )}
+            {copiedText ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            <span>{copiedText ? "Metin Panoya Kopyalandı!" : "Metin / Emoji Olarak Kopyala"}</span>
           </button>
 
           <button
