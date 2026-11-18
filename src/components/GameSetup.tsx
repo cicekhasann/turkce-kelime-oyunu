@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Clock, Copy, Dices, Eye, EyeOff, Link2, MessageSquareHeart, Play, Sparkles } from "lucide-react";
+import { CalendarDays, Check, Clock, Copy, Dices, Eye, EyeOff, Link2, MessageSquareHeart, Play, Sparkles } from "lucide-react";
 import { encodeGameConfig } from "../lib/cipher";
 import { loadWordList, pickRandomWord } from "../lib/dictionary";
 import {
@@ -12,9 +12,10 @@ import {
 
 interface GameSetupProps {
   onStartToken: (token: string) => void;
+  onStartDaily: () => void;
 }
 
-export function GameSetup({ onStartToken }: GameSetupProps) {
+export function GameSetup({ onStartToken, onStartDaily }: GameSetupProps) {
   const [mode, setMode] = useState<"custom" | "random">("custom");
   const [customWord, setCustomWord] = useState("");
   const [showWord, setShowWord] = useState(false);
@@ -26,6 +27,7 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
   const [attemptsTouched, setAttemptsTouched] = useState(false);
   const [strictDictionary, setStrictDictionary] = useState(true);
   const [hideAnswerOnLoss, setHideAnswerOnLoss] = useState(false);
+  const [hardMode, setHardMode] = useState(false);
   const [timeLimitSec, setTimeLimitSec] = useState(0);
   const [winMessage, setWinMessage] = useState("");
 
@@ -134,6 +136,7 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
       maxAttempts,
       strictDictionary,
       hideAnswerOnLoss,
+      hardMode,
       timeLimitSec,
       winMessage,
     });
@@ -157,7 +160,31 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 py-6 sm:py-10">
+    <div className="mx-auto w-full max-w-lg px-4 py-6 sm:py-8 space-y-4">
+      {/* Günün Kelimesi Hızlı Başlat Kartı */}
+      <button
+        type="button"
+        onClick={onStartDaily}
+        className="flex w-full items-center justify-between rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent p-4 text-left transition hover:border-amber-400/50 hover:from-amber-500/20 cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <CalendarDays className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-zinc-100">
+              Günün Kelimesini Oyna
+            </div>
+            <div className="text-xs text-zinc-400">
+              Herkes için ortak, her gün yenilenen 5 harfli Türkçe kelime
+            </div>
+          </div>
+        </div>
+        <span className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-zinc-950">
+          Oyna
+        </span>
+      </button>
+
       <div className="rounded-2xl border border-zinc-800 bg-[#13161f] p-5 shadow-xl sm:p-6">
         <div className="mb-5">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400">
@@ -436,7 +463,7 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
         </label>
 
         {/* Bilemezse Cevabı Gizle Modu */}
-        <label className="mb-5 flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-3.5 py-3">
+        <label className="mb-3 flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-3.5 py-3">
           <div>
             <div className="text-xs font-semibold text-zinc-200">
               Bilemezse Cevabı Gizle
@@ -450,6 +477,27 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
             checked={hideAnswerOnLoss}
             onChange={(e) => {
               setHideAnswerOnLoss(e.target.checked);
+              setGeneratedToken(null);
+            }}
+            className="h-4 w-4 rounded accent-emerald-500 cursor-pointer"
+          />
+        </label>
+
+        {/* Zor Mod */}
+        <label className="mb-5 flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-3.5 py-3">
+          <div>
+            <div className="text-xs font-semibold text-zinc-200">
+              Zor Mod (Hard Mode)
+            </div>
+            <div className="mt-0.5 text-[11px] text-zinc-400">
+              Açığa çıkan yeşil ve sarı harfler sonraki tahminlerde kullanılmalıdır.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={hardMode}
+            onChange={(e) => {
+              setHardMode(e.target.checked);
               setGeneratedToken(null);
             }}
             className="h-4 w-4 rounded accent-emerald-500 cursor-pointer"

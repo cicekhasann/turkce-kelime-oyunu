@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { parseTurkishKey, sanitizeTurkishWord, toTurkishUpper } from "../turkish";
-import { evaluateGuess, generateShareText, mergeKeyboardStates } from "../evaluator";
+import {
+  evaluateGuess,
+  generateShareText,
+  mergeKeyboardStates,
+  validateHardModeGuess,
+} from "../evaluator";
 import { decodeGameConfig, encodeGameConfig } from "../cipher";
 
 describe("Türkçe karakter normalizasyonu", () => {
@@ -12,7 +17,7 @@ describe("Türkçe karakter normalizasyonu", () => {
   });
 
   it("NFD birleşik karakterleri NFC'ye indirger ve uzunluğu korur", () => {
-    const nfdIstanbul = "I\u0307stanbul"; // I + combining dot above
+    const nfdIstanbul = "I\u0307stanbul";
     const clean = sanitizeTurkishWord(nfdIstanbul);
     expect(clean).toBe("İSTANBUL");
     expect(Array.from(clean).length).toBe(8);
@@ -31,21 +36,16 @@ describe("Türkçe karakter normalizasyonu", () => {
 
 describe("İki aşamalı harf değerlendirme (Çoklu harf kuralı)", () => {
   it("hedefte 1 tane olan harf tahminde 2 kez geçerse sadece 1'ini işaretler", () => {
-    // Hedef: KALEM (1 adet A, 1 adet L)
-    // Tahmin: ARABA (3 adet A: 1. yanlış yerde, diğer ikisi gri olmalı)
     expect(evaluateGuess("ARABA", "KALEM")).toEqual([
-      "present", // A (hedefte 2. sırada var)
-      "absent",  // R
-      "absent",  // A (ikinci A gri!)
-      "absent",  // B
-      "absent",  // A (üçüncü A gri!)
+      "present",
+      "absent",
+      "absent",
+      "absent",
+      "absent",
     ]);
   });
 
   it("tam eşleşme (yeşil) önceliklidir, fazladan önceki harfi sarı yapmaz", () => {
-    // Hedef: KASAS (A harfi sadece 2. sırada var; K-A-S-A-S değil: 1 tane E olsun -> KALEM vs SALAL)
-    // Hedef: MASAL (2 adet A: 2. ve 4. sırada)
-    // Tahmin: ADANA (3 adet A: 1. yanlış konum, 3. yanlış konum, 5. gri)
     expect(evaluateGuess("ADANA", "MASAL")).toEqual([
       "present",
       "absent",
@@ -54,24 +54,21 @@ describe("İki aşamalı harf değerlendirme (Çoklu harf kuralı)", () => {
       "absent",
     ]);
 
-    // Hedef: KİTAP (1 adet İ: 2. sırada)
-    // Tahmin: İKİLİ (2 adet İ: 1. sırada yanlış, 3. sırada yanlış -> 1. sarı, 3. gri; ayrıca 1. yanlış K? Hayır)
     expect(evaluateGuess("İBİKİ", "KİTAP")).toEqual([
-      "present", // İ (hedefte 2. sırada var)
-      "absent",  // B
-      "absent",  // İ (fazla İ -> gri)
-      "present", // K (hedefte 1. sırada var)
-      "absent",  // İ (fazla İ -> gri)
+      "present",
+      "absent",
+      "absent",
+      "present",
+      "absent",
     ]);
 
-    // Eğer ikinci İ tam yerinde olsaydı (2. konumda): ilk İ gri, ikinci İ yeşil!
     expect(evaluateGuess("İİKLM", "KİTAP")).toEqual([
-      "absent",  // 1. İ gri çünkü tek İ 2. konumda tam eşleşti
-      "correct", // 2. İ yeşil
-      "absent",  // K (hedefte 1. konumda var! -> present!)
-      "absent",  // L
-      "absent",  // M
-    ].map((s, i) => (i === 2 ? "present" : s)));
+      "absent",
+      "correct",
+      "present",
+      "absent",
+      "absent",
+    ]);
   });
 
   it("klavye renk önceliğini Yeşil > Sarı > Gri olarak birleştirir", () => {
@@ -95,15 +92,22 @@ describe("İki aşamalı harf değerlendirme (Çoklu harf kuralı)", () => {
     expect(txt).toContain("🟩🟩⬛🟨⬛");
     expect(txt).toContain("🟩🟩🟩🟩🟩");
   });
+
+  it("Zor Mod kuralını doğrular (yeşil konum ve sarı harf zorunluluğu)", () => {
+    expect(validateHardModeGuess("SABİT", ["KABLO"], "KALEM")).toContain("1. harf 'K' olmalı");
+    expect(validateHardModeGuess("KASAP", ["KABLO"], "KALEM")).toContain("'L' harfi bulunmalı");
+    expect(validateHardModeGuess("KALEM", ["KABLO"], "KALEM")).toBeNull();
+  });
 });
 
 describe("URL Şifreleme / Çözme", () => {
-  it("Türkçe karakterli kelimeleri, hak sayısını, süreyi, gizli mesajı ve sözlük ayarını korur", () => {
+  it("Türkçe karakterli kelimeleri, hak sayısını, süreyi, modları ve gizli mesajı korur", () => {
     const config = {
       word: "GÖKYÜZÜ",
       maxAttempts: 8,
       strictDictionary: true,
       hideAnswerOnLoss: true,
+      hardMode: true,
       timeLimitSec: 120,
       winMessage: "Bunu bildiysen kahve benden!",
     };

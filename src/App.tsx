@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Clock, PlusCircle, Trophy } from "lucide-react";
+import { AlertTriangle, Clock, Flame, Lock, PlusCircle, Trophy } from "lucide-react";
+import { ConfettiBurst } from "./components/ConfettiBurst";
 import { GameBoard } from "./components/GameBoard";
 import { GameSetup } from "./components/GameSetup";
 import { Header } from "./components/Header";
@@ -7,65 +8,94 @@ import { HelpModal } from "./components/HelpModal";
 import { ResultModal } from "./components/ResultModal";
 import { TurkishKeyboard } from "./components/TurkishKeyboard";
 import { decodeGameConfig, type GameConfig } from "./lib/cipher";
-import { loadWordList } from "./lib/dictionary";
-import { mergeKeyboardStates } from "./lib/evaluator";
-import { loadSavedGame, saveGameState, type GameStatus } from "./lib/storage";
+import { loadWordList, pickDailyWord } from "./lib/dictionary";
+import { mergeKeyboardStates, validateHardModeGuess } from "./lib/evaluator";
+import { loadSessionGame, saveSessionGame, type GameStatus } from "./lib/session";
 import { parseTurkishKey } from "./lib/turkish";
 
-function getTokenFromUrl(): string | null {
+type RouteState =
+  | { mode: "setup" }
+  | { mode: "daily" }
+  | { mode: "token"; token: string };
+
+function getRouteFromUrl(): RouteState {
   const params = new URLSearchParams(window.location.search);
-  return params.get("c");
+  const c = params.get("c");
+  if (c) return { mode: "token", token: c };
+  if (params.get("daily") === "1") return { mode: "daily" };
+  return { mode: "setup" };
 }
 
 export function App() {
-  const [token, setToken] = useState<string | null>(() => getTokenFromUrl());
+  const [route, setRoute] = useState<RouteState>(() => getRouteFromUrl());
   const [helpOpen, setHelpOpen] = useState(false);
+  const [funMode, setFunMode] = useState(false);
 
-  // URL değişimlerini (Geri/İleri) dinle
   useEffect(() => {
-    const onPopState = () => setToken(getTokenFromUrl());
+    const onPopState = () => setRoute(getRouteFromUrl());
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
   const navigateToSetup = useCallback(() => {
     window.history.pushState({}, "", window.location.pathname);
-    setToken(null);
+    setRoute({ mode: "setup" });
   }, []);
 
   const navigateToToken = useCallback((nextToken: string) => {
     const url = `${window.location.pathname}?c=${nextToken}`;
     window.history.pushState({}, "", url);
-    setToken(nextToken);
+    setRoute({ mode: "token", token: nextToken });
   }, []);
 
-  const decoded = useMemo(() => {
-    if (!token) return { status: "setup" as const };
-    const config = decodeGameConfig(token);
-    if (!config) return { status: "invalid" as const };
-    return { status: "ready" as const, config, token };
-  }, [token]);
+  const navigateToDaily = useCallback(() => {
+    const url = `${window.location.pathname}?daily=1`;
+    window.history.pushState({}, "", url);
+    setRoute({ mode: "daily" });
+  }, []);
+
+  const tokenConfig = useMemo(() => {
+    if (route.mode !== "token") return null;
+    return decodeGameConfig(route.token);
+  }, [route]);
+
+  const subtitle = useMemo(() => {
+    if (route.mode === "daily") return "Günün Kelimesi • 5 Harf";
+    if (route.mode === "token" && tokenConfig) {
+      return `${Array.from(tokenConfig.word).length} Harf • ${
+        tokenConfig.strictDictionary ? "Sözlüklü" : "Serbest"
+      }${tokenConfig.hardMode ? " • Zor Mod" : ""}`;
+    }
+    return "Arkadaş Grubuna Özel";
+  }, [route, tokenConfig]);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0e1015] text-zinc-100">
+    <div
+      className={`flex min-h-dvh flex-col text-zinc-100 transition-colors duration-300 ${
+        funMode
+          ? "bg-[radial-gradient(ellipse_at_top,_#2b125a_0%,_#110a26_55%,_#090714_100%)]"
+          : "bg-[#0e1015]"
+      }`}
+    >
       <Header
-        onOpenSetup={decoded.status !== "setup" ? navigateToSetup : undefined}
+        onOpenSetup={route.mode !== "setup" ? navigateToSetup : undefined}
+        onOpenDaily={navigateToDaily}
         onOpenHelp={() => setHelpOpen(true)}
-        subtitle={
-          decoded.status === "ready"
-            ? `${Array.from(decoded.config.word).length} Harf • ${
-                decoded.config.strictDictionary ? "Sözlüklü" : "Serbest"
-              }${decoded.config.hideAnswerOnLoss ? " • Gizli Cevap" : ""}`
-            : "Arkadaş Grubuna Özel"
-        }
+        funMode={funMode}
+        onToggleFunMode={() => setFunMode((f) => !f)}
+        subtitle={subtitle}
+        isDaily={route.mode === "daily"}
       />
 
       <main className="flex flex-1 flex-col">
-        {decoded.status === "setup" && (
-          <GameSetup onStartToken={navigateToToken} />
+        {route.mode === "setup" && (
+          <GameSetup
+            onStartToken={navigateToToken}
+            onStartDaily={navigateToDaily}
+          />
         )}
 
-        {decoded.status === "invalid" && (
+        {route.mode === "token" && !tokenConfig && (
           <div className="mx-auto my-auto max-w-sm px-4 text-center">
             <div className="rounded-2xl border border-rose-500/30 bg-[#13161f] p-6 shadow-xl">
               <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-rose-400" />
@@ -87,13 +117,18 @@ export function App() {
           </div>
         )}
 
-        {decoded.status === "ready" && (
+        {route.mode === "token" && tokenConfig && (
           <ActiveGame
-            key={decoded.token}
-            token={decoded.token}
-            config={decoded.config}
+            key={route.token}
+            sessionKey={route.token}
+            config={tokenConfig}
+            funMode={funMode}
             onCreateNew={navigateToSetup}
           />
+        )}
+
+        {route.mode === "daily" && (
+          <DailyGameLoader funMode={funMode} onCreateNew={navigateToSetup} />
         )}
       </main>
 
@@ -102,9 +137,73 @@ export function App() {
   );
 }
 
+function DailyGameLoader({
+  funMode,
+  onCreateNew,
+}: {
+  funMode: boolean;
+  onCreateNew: () => void;
+}) {
+  const [daily, setDaily] = useState<{ config: GameConfig; dateStr: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    pickDailyWord(5)
+      .then(({ word, dateStr }) => {
+        if (!cancelled) {
+          setDaily({
+            dateStr,
+            config: {
+              word,
+              maxAttempts: 6,
+              strictDictionary: true,
+              timeLimitSec: 0,
+            },
+          });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Günlük kelime yüklenemedi.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <div className="my-auto text-center text-xs text-rose-400">{error}</div>
+    );
+  }
+
+  if (!daily) {
+    return (
+      <div className="my-auto text-center text-xs text-zinc-400">
+        Günün kelimesi hazırlanıyor...
+      </div>
+    );
+  }
+
+  return (
+    <ActiveGame
+      key={`daily-${daily.dateStr}`}
+      sessionKey={`daily-${daily.dateStr}`}
+      config={daily.config}
+      dailyDate={daily.dateStr}
+      funMode={funMode}
+      onCreateNew={onCreateNew}
+    />
+  );
+}
+
 interface ActiveGameProps {
-  token: string;
+  sessionKey: string;
   config: GameConfig;
+  dailyDate?: string;
+  funMode: boolean;
   onCreateNew: () => void;
 }
 
@@ -115,25 +214,40 @@ function formatTime(totalSeconds: number): string {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
+function ActiveGame({
+  sessionKey,
+  config,
+  dailyDate,
+  funMode,
+  onCreateNew,
+}: ActiveGameProps) {
   const wordLength = Array.from(config.word).length;
-  const saved = useMemo(() => loadSavedGame(token), [token]);
+  const saved = useMemo(() => loadSessionGame(sessionKey), [sessionKey]);
 
   const [guesses, setGuesses] = useState<string[]>(() => saved?.guesses ?? []);
   const [status, setStatus] = useState<GameStatus>(() => saved?.status ?? "playing");
   const [startedAt] = useState<number>(() => saved?.startedAt ?? Date.now());
   const [finishedAt, setFinishedAt] = useState<number | undefined>(() => saved?.finishedAt);
-  const [timedOut, setTimedOut] = useState<boolean>(() => saved?.timedOut ?? false);
+  const [timedOut, setTimedOut] = useState(() => saved?.timedOut ?? false);
   const [now, setNow] = useState<number>(() => Date.now());
 
   const [currentGuess, setCurrentGuess] = useState("");
   const [shakeRow, setShakeRow] = useState(false);
+  const [wonRowIndex, setWonRowIndex] = useState<number | null>(() =>
+    saved?.status === "won" ? saved.guesses.length - 1 : null
+  );
+  const [celebrating, setCelebrating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [resultOpen, setResultOpen] = useState(
     () => saved?.status !== undefined && saved.status !== "playing"
   );
   const [allowedSet, setAllowedSet] = useState<Set<string> | null>(null);
   const [dictLoading, setDictLoading] = useState(config.strictDictionary);
+
+  // Aktif sekme yenilemesine karşı sessionStorage senkronizasyonu (kalıcı localStorage değil)
+  useEffect(() => {
+    saveSessionGame(sessionKey, { guesses, status, startedAt, finishedAt, timedOut });
+  }, [sessionKey, guesses, status, startedAt, finishedAt, timedOut]);
 
   const toastTimerRef = useRef<number | null>(null);
 
@@ -159,7 +273,7 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
   const showToast = useCallback((message: string) => {
     setToast(message);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 2000);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 2200);
   }, []);
 
   const triggerShake = useCallback(() => {
@@ -195,11 +309,6 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
     };
   }, [config.strictDictionary, wordLength, showToast]);
 
-  // Oyun durumunu kaydet
-  useEffect(() => {
-    saveGameState(token, { guesses, status, startedAt, finishedAt, timedOut });
-  }, [token, guesses, status, startedAt, finishedAt, timedOut]);
-
   const handleSubmit = useCallback(() => {
     if (status !== "playing") return;
 
@@ -211,7 +320,6 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
     }
 
     if (config.strictDictionary && allowedSet) {
-      // Hedef kelime özel/sözlük dışı olsa bile doğru tahmin her zaman kabul edilir
       if (currentGuess !== config.word && !allowedSet.has(currentGuess)) {
         triggerShake();
         showToast("Kelime sözlükte bulunamadı!");
@@ -219,6 +327,16 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
       }
     }
 
+    if (config.hardMode) {
+      const hardError = validateHardModeGuess(currentGuess, guesses, config.word);
+      if (hardError) {
+        triggerShake();
+        showToast(hardError);
+        return;
+      }
+    }
+
+    const rowIdx = guesses.length;
     const nextGuesses = [...guesses, currentGuess];
     setGuesses(nextGuesses);
     setCurrentGuess("");
@@ -227,7 +345,12 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
       const doneAt = Date.now();
       setStatus("won");
       setFinishedAt(doneAt);
-      window.setTimeout(() => setResultOpen(true), wordLength * 70 + 380);
+      const flipFinishDelay = wordLength * 70 + 360;
+      window.setTimeout(() => {
+        setWonRowIndex(rowIdx);
+        setCelebrating(true);
+      }, flipFinishDelay);
+      window.setTimeout(() => setResultOpen(true), flipFinishDelay + 650);
     } else if (nextGuesses.length >= config.maxAttempts) {
       const doneAt = Date.now();
       setStatus("lost");
@@ -241,6 +364,7 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
     config.strictDictionary,
     config.word,
     config.maxAttempts,
+    config.hardMode,
     allowedSet,
     guesses,
     triggerShake,
@@ -312,6 +436,8 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
 
   return (
     <div className="relative mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-between px-2 py-2 sm:justify-center sm:gap-5 sm:px-4 sm:py-6">
+      <ConfettiBurst active={celebrating} />
+
       {/* Bildirim Toast */}
       {toast && (
         <div className="pointer-events-none fixed top-16 z-40 rounded-lg bg-zinc-100 px-4 py-2 text-xs font-bold text-zinc-950 shadow-lg">
@@ -320,7 +446,13 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
       )}
 
       {/* Üst Bilgi Çubuğu (HUD) */}
-      <div className="flex w-full max-w-xl items-center justify-between rounded-xl border border-zinc-800/90 bg-[#13161f]/90 px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm shadow-sm">
+      <div
+        className={`flex w-full max-w-xl items-center justify-between rounded-xl border px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm shadow-sm transition-colors ${
+          funMode
+            ? "border-purple-500/30 bg-[#1a103a]/90"
+            : "border-zinc-800/90 bg-[#13161f]/90"
+        }`}
+      >
         <div className="flex items-center gap-2 font-mono">
           <span className="text-zinc-400">Deneme:</span>
           <span className="font-bold text-zinc-100">
@@ -345,10 +477,27 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
           </span>
         </div>
 
-        <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-zinc-400">
-          <span>{wordLength} Harf</span>
-          <span>•</span>
-          <span>{config.strictDictionary ? "Sözlüklü" : "Serbest"}</span>
+        <div className="hidden sm:flex items-center gap-2 text-[11px] font-medium text-zinc-400">
+          {dailyDate && (
+            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300">
+              {dailyDate}
+            </span>
+          )}
+          {config.hardMode && (
+            <span className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-1.5 py-0.5 text-rose-300">
+              <Flame className="h-3 w-3" /> Zor
+            </span>
+          )}
+          {config.hideAnswerOnLoss && (
+            <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300">
+              <Lock className="h-3 w-3" /> Gizli
+            </span>
+          )}
+          {!dailyDate && !config.hardMode && !config.hideAnswerOnLoss && (
+            <span>
+              {wordLength} Harf • {config.strictDictionary ? "Sözlüklü" : "Serbest"}
+            </span>
+          )}
         </div>
       </div>
 
@@ -365,6 +514,8 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
             currentGuess={currentGuess}
             targetWord={config.word}
             shakeRow={shakeRow}
+            wonRowIndex={wonRowIndex}
+            funMode={funMode}
           />
           {status !== "playing" && !resultOpen && (
             <button
@@ -383,6 +534,7 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
         keyStates={keyStates}
         onKey={handleInputKey}
         disabled={status !== "playing" || dictLoading}
+        funMode={funMode}
       />
 
       <ResultModal
@@ -390,6 +542,9 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
         won={status === "won"}
         timedOut={timedOut}
         hideAnswerOnLoss={config.hideAnswerOnLoss}
+        hardMode={config.hardMode}
+        funMode={funMode}
+        dailyDate={dailyDate}
         winMessage={config.winMessage}
         targetWord={config.word}
         wordLength={wordLength}
@@ -402,4 +557,3 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
     </div>
   );
 }
-

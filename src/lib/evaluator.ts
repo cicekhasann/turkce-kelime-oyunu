@@ -68,6 +68,52 @@ export function mergeKeyboardStates(
   return keyStates;
 }
 
+/**
+ * Zor Mod doğrulaması:
+ * Önceki tahminlerde açığa çıkan tüm yeşil (doğru konum) ve sarı (var olan)
+ * harflerin yeni tahminde kullanılıp kullanılmadığını kontrol eder.
+ */
+export function validateHardModeGuess(
+  guess: string,
+  previousGuesses: string[],
+  target: string
+): string | null {
+  if (previousGuesses.length === 0) return null;
+
+  const guessChars = Array.from(guess);
+  const lastGuess = previousGuesses[previousGuesses.length - 1];
+  const lastChars = Array.from(lastGuess);
+  const lastStates = evaluateGuess(lastGuess, target);
+
+  // 1. Doğru konumdaki (Yeşil) harfler aynı konumda olmalı
+  for (let i = 0; i < lastStates.length; i++) {
+    if (lastStates[i] === "correct" && guessChars[i] !== lastChars[i]) {
+      return `${i + 1}. harf '${lastChars[i]}' olmalı!`;
+    }
+  }
+
+  // 2. Son tahminde açılan tüm sarı + yeşil harf sayıları korunmalı
+  const requiredCounts = new Map<string, number>();
+  for (let i = 0; i < lastStates.length; i++) {
+    if (lastStates[i] === "correct" || lastStates[i] === "present") {
+      requiredCounts.set(lastChars[i], (requiredCounts.get(lastChars[i]) ?? 0) + 1);
+    }
+  }
+
+  const guessCounts = new Map<string, number>();
+  for (const ch of guessChars) {
+    guessCounts.set(ch, (guessCounts.get(ch) ?? 0) + 1);
+  }
+
+  for (const [ch, reqCount] of requiredCounts.entries()) {
+    if ((guessCounts.get(ch) ?? 0) < reqCount) {
+      return `Tahminde '${ch}' harfi bulunmalı!`;
+    }
+  }
+
+  return null;
+}
+
 const EMOJI_MAP: Record<LetterState, string> = {
   correct: "🟩",
   present: "🟨",
@@ -84,11 +130,16 @@ export function generateShareText(params: {
   guesses: string[];
   target: string;
   won: boolean;
+  dailyDate?: string;
+  hardMode?: boolean;
   gameUrl?: string;
 }): string {
-  const { wordLength, maxAttempts, guesses, target, won, gameUrl } = params;
+  const { wordLength, maxAttempts, guesses, target, won, dailyDate, hardMode, gameUrl } = params;
   const score = won ? `${guesses.length}/${maxAttempts}` : `X/${maxAttempts}`;
-  const header = `Kelimele (${wordLength} Harf) ${score}`;
+  const modeSuffix = hardMode ? "*" : "";
+  const header = dailyDate
+    ? `Kelimele Günlük (${dailyDate}) ${score}${modeSuffix}`
+    : `Kelimele (${wordLength} Harf) ${score}${modeSuffix}`;
 
   const grid = guesses
     .map((g) =>

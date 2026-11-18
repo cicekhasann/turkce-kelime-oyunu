@@ -46,3 +46,46 @@ export async function pickRandomWord(length: number): Promise<string> {
   return answers[index];
 }
 
+/**
+ * Türkiye saat dilimine (Europe/Istanbul) göre YYYY-MM-DD tarih dizesi döndürür.
+ */
+export function getIstanbulDateString(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Istanbul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function hashDateSeed(dateStr: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < dateStr.length; i++) {
+    h ^= dateStr.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  // Ek karıştırma (Avalanche)
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+/**
+ * Günün tarihine göre deterministik olarak (herkes için aynı) 5 harfli Türkçe kelime seçer.
+ */
+export async function pickDailyWord(length = 5): Promise<{ word: string; dateStr: string }> {
+  const { answers } = await loadWordList(length);
+  if (answers.length === 0) {
+    throw new Error("Günlük kelime havuzu boş.");
+  }
+  const dateStr = getIstanbulDateString();
+  const seed = hashDateSeed(`kelimele-daily:${dateStr}`);
+  const index = seed % answers.length;
+  return {
+    word: answers[index],
+    dateStr,
+  };
+}
