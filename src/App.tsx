@@ -55,7 +55,7 @@ export function App() {
           decoded.status === "ready"
             ? `${Array.from(decoded.config.word).length} Harf • ${
                 decoded.config.strictDictionary ? "Sözlüklü" : "Serbest"
-              }`
+              }${decoded.config.hideAnswerOnLoss ? " • Gizli Cevap" : ""}`
             : "Arkadaş Grubuna Özel"
         }
       />
@@ -389,6 +389,7 @@ function ActiveGame({ token, config, onCreateNew }: ActiveGameProps) {
         open={resultOpen}
         won={status === "won"}
         timedOut={timedOut}
+        hideAnswerOnLoss={config.hideAnswerOnLoss}
         winMessage={config.winMessage}
         targetWord={config.word}
         wordLength={wordLength}

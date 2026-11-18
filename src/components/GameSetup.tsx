@@ -25,6 +25,7 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
   const [maxAttempts, setMaxAttempts] = useState(6);
   const [attemptsTouched, setAttemptsTouched] = useState(false);
   const [strictDictionary, setStrictDictionary] = useState(true);
+  const [hideAnswerOnLoss, setHideAnswerOnLoss] = useState(false);
   const [timeLimitSec, setTimeLimitSec] = useState(0);
   const [winMessage, setWinMessage] = useState("");
 
@@ -103,7 +104,7 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
     setError(null);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setError(null);
     if (activeLength < MIN_WORD_LENGTH || activeLength > MAX_WORD_LENGTH) {
       setError(
@@ -112,10 +113,27 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
       return;
     }
 
+    if (mode === "custom" && strictDictionary) {
+      try {
+        const { allowedSet } = await loadWordList(activeLength);
+        if (!allowedSet.has(activeWord)) {
+          setInDictionary(false);
+          setError(
+            "Bu kelime Türkçe sözlükte bulunmuyor! Oyunu başlatmak için sözlükte olan bir kelime yazın veya aşağıdaki 'Sözlük Zorunluluğu' seçeneğini kapatın."
+          );
+          return;
+        }
+      } catch {
+        setError("Sözlük doğrulanamadı, lütfen tekrar deneyin.");
+        return;
+      }
+    }
+
     const token = encodeGameConfig({
       word: activeWord,
       maxAttempts,
       strictDictionary,
+      hideAnswerOnLoss,
       timeLimitSec,
       winMessage,
     });
@@ -228,9 +246,9 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
             </div>
             {strictDictionary && inDictionary === false && (
               <p className="text-[11px] text-amber-400/90">
-                Not: Bu kelime Türkçe sözlükte yer almıyor. Arkadaşın doğru kelimeyi
-                yazdığında kazanacaktır; ancak özel isim/argo için sözlük zorunluluğunu
-                kapatabilirsin.
+                Bu kelime sözlükte bulunmuyor. Sözlük zorunluluğu açıkken oyunu
+                başlatamazsın; aşağıdaki &quot;Sözlük Zorunluluğu&quot; seçeneğini
+                kapatabilir veya sözlükte olan bir kelime yazabilirsin.
               </p>
             )}
           </div>
@@ -396,13 +414,13 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
         </div>
 
         {/* Sözlük Zorunluluğu */}
-        <label className="mb-5 flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-3.5 py-3">
+        <label className="mb-3 flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-3.5 py-3">
           <div>
             <div className="text-xs font-semibold text-zinc-200">
-              Tahminlerde Sözlük Zorunluluğu
+              Sözlük Zorunluluğu
             </div>
             <div className="mt-0.5 text-[11px] text-zinc-400">
-              Açıkken yalnızca gerçek Türkçe kelimeler kabul edilir.
+              Açıkken yalnızca sözlükteki gerçek Türkçe kelimeler kabul edilir.
             </div>
           </div>
           <input
@@ -410,6 +428,28 @@ export function GameSetup({ onStartToken }: GameSetupProps) {
             checked={strictDictionary}
             onChange={(e) => {
               setStrictDictionary(e.target.checked);
+              setGeneratedToken(null);
+              setError(null);
+            }}
+            className="h-4 w-4 rounded accent-emerald-500 cursor-pointer"
+          />
+        </label>
+
+        {/* Bilemezse Cevabı Gizle Modu */}
+        <label className="mb-5 flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-3.5 py-3">
+          <div>
+            <div className="text-xs font-semibold text-zinc-200">
+              Bilemezse Cevabı Gizle
+            </div>
+            <div className="mt-0.5 text-[11px] text-zinc-400">
+              Açıkken oyuncu hakları dolduğunda bile doğru kelime gösterilmez.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={hideAnswerOnLoss}
+            onChange={(e) => {
+              setHideAnswerOnLoss(e.target.checked);
               setGeneratedToken(null);
             }}
             className="h-4 w-4 rounded accent-emerald-500 cursor-pointer"

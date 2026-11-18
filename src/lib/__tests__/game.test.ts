@@ -103,6 +103,7 @@ describe("URL Şifreleme / Çözme", () => {
       word: "GÖKYÜZÜ",
       maxAttempts: 8,
       strictDictionary: true,
+      hideAnswerOnLoss: true,
       timeLimitSec: 120,
       winMessage: "Bunu bildiysen kahve benden!",
     };

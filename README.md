@@ -39,3 +39,4 @@ npm run build
 ## Lisans
 
 Bu proje [MIT Lisansı](LICENSE) altında lisanslanmıştır. Kelime veri seti açık kaynak Türkçe kelime listesi (`mertemin/turkish-word-list`, MIT) temel alınarak uzunluklarına göre ayrıştırılmıştır.
+

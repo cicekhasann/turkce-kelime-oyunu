@@ -12,6 +12,7 @@ export interface GameConfig {
   strictDictionary: boolean;
   timeLimitSec: number; // 0 = süresiz, > 0 = saniye cinsinden geri sayım
   winMessage?: string;
+  hideAnswerOnLoss?: boolean;
 }
 
 const STREAM_KEY = new Uint8Array([
@@ -60,7 +61,10 @@ export function encodeGameConfig(config: GameConfig): string {
   const cleanWord = sanitizeTurkishWord(config.word);
   const wordBytes = new TextEncoder().encode(cleanWord);
   const attempts = Math.min(MAX_ATTEMPTS, Math.max(MIN_ATTEMPTS, config.maxAttempts));
-  const flags = (attempts & 0x0f) | (config.strictDictionary ? 0x10 : 0x00);
+  const flags =
+    (attempts & 0x0f) |
+    (config.strictDictionary ? 0x10 : 0x00) |
+    (config.hideAnswerOnLoss ? 0x20 : 0x00);
 
   const timeLimitSec = Math.max(0, Math.min(3600, Math.round(config.timeLimitSec || 0)));
   const trimmedMsg = (config.winMessage ?? "").trim().slice(0, 140);
@@ -132,6 +136,7 @@ export function decodeGameConfig(token: string): GameConfig | null {
   const flags = payload[1];
   const maxAttempts = flags & 0x0f;
   const strictDictionary = (flags & 0x10) !== 0;
+  const hideAnswerOnLoss = (flags & 0x20) !== 0;
 
   let timeLimitSec = 0;
   let wordBytes: Uint8Array;
@@ -179,6 +184,7 @@ export function decodeGameConfig(token: string): GameConfig | null {
     maxAttempts,
     strictDictionary,
     timeLimitSec,
+    ...(hideAnswerOnLoss ? { hideAnswerOnLoss: true } : {}),
     ...(winMessage ? { winMessage } : {}),
   };
 }

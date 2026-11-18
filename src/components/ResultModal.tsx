@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Check, MessageSquareHeart, PlusCircle, Share2, Trophy, XCircle } from "lucide-react";
+import { Check, Lock, MessageSquareHeart, PlusCircle, Share2, Trophy, XCircle } from "lucide-react";
 import { evaluateGuess, generateShareText } from "../lib/evaluator";
 
 interface ResultModalProps {
   open: boolean;
   won: boolean;
   timedOut?: boolean;
+  hideAnswerOnLoss?: boolean;
   winMessage?: string;
   targetWord: string;
   wordLength: number;
@@ -27,6 +28,7 @@ export function ResultModal({
   open,
   won,
   timedOut,
+  hideAnswerOnLoss,
   winMessage,
   targetWord,
   wordLength,
@@ -110,13 +112,25 @@ export function ResultModal({
           </div>
         )}
 
-        <div className="my-4 rounded-xl border border-zinc-800 bg-zinc-900/80 py-3">
+        <div className="my-4 rounded-xl border border-zinc-800 bg-zinc-900/80 py-3 px-3">
           <div className="text-[11px] uppercase tracking-wider text-zinc-400">
             Hedef Kelime
           </div>
-          <div className="mt-1 font-mono text-2xl font-bold tracking-[0.2em] text-emerald-400">
-            {targetWord}
-          </div>
+          {!won && hideAnswerOnLoss ? (
+            <div className="mt-1.5 flex flex-col items-center gap-1 text-zinc-300">
+              <div className="flex items-center gap-1.5 font-mono text-sm font-bold text-amber-400">
+                <Lock className="h-4 w-4" />
+                <span>Cevap Gizli</span>
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                Gizli Cevap Modu aktif olduğu için bilemediğinde doğru kelime gösterilmez.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-1 font-mono text-2xl font-bold tracking-[0.2em] text-emerald-400">
+              {targetWord}
+            </div>
+          )}
         </div>
 
         <div className="mb-5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-3 font-mono text-base leading-snug tracking-widest">
