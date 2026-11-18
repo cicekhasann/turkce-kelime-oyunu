@@ -25,6 +25,19 @@
   70% { transform: translateY(2px); }
 }
 
+@keyframes funGlow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(217, 70, 239, 0.25), 0 0 16px rgba(16, 185, 129, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(217, 70, 239, 0.5), 0 0 24px rgba(16, 185, 129, 0.25);
+  }
+}
+
+.animate-fun-glow {
+  animation: funGlow 2.4s ease-in-out infinite;
+}
+
 .animate-shake {
   animation: shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
