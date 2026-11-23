@@ -423,13 +423,22 @@ function ActiveGame({
         return prev + parsed;
       });
     },
-    [status, dictLoading, handleSubmit, wordLength]
+    [readyToStart, status, dictLoading, handleSubmit, wordLength]
   );
 
-  // Fiziksel klavye dinleyicisi
+  // Fiziksel klavye dinleyicisi (input/textarea odaklıysa oyun tahtasına müdahale etme)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
       if (e.key === "Enter") {
         e.preventDefault();
         handleInputKey("ENTER");
