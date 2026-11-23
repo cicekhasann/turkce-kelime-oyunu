@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CalendarDays, Check, Clock, Copy, Dices, Eye, EyeOff, Link2, MessageSquareHeart, Play, Sparkles } from "lucide-react";
 import { encodeGameConfig } from "../lib/cipher";
 import { loadWordList, pickRandomWord } from "../lib/dictionary";
+import { THEMES, type ThemeMode } from "../lib/theme";
 import {
   MAX_ATTEMPTS,
   MAX_WORD_LENGTH,
@@ -13,10 +14,12 @@ import {
 interface GameSetupProps {
   onStartToken: (token: string) => void;
   onStartDaily: () => void;
-  funMode?: boolean;
+  theme?: ThemeMode;
 }
 
-export function GameSetup({ onStartToken, onStartDaily, funMode = false }: GameSetupProps) {
+export function GameSetup({ onStartToken, onStartDaily, theme = "classic" }: GameSetupProps) {
+  const funMode = theme !== "classic";
+  const isLight = THEMES[theme].isLight;
   const [mode, setMode] = useState<"custom" | "random">("custom");
   const [customWord, setCustomWord] = useState("");
   const [showWord, setShowWord] = useState(false);
@@ -160,31 +163,39 @@ export function GameSetup({ onStartToken, onStartDaily, funMode = false }: GameS
         type="button"
         onClick={onStartDaily}
         className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition cursor-pointer ${
-          funMode
-            ? "border-cyan-400/35 bg-gradient-to-r from-cyan-500/15 via-fuchsia-500/10 to-transparent hover:border-cyan-300/60 shadow-[0_0_24px_rgba(34,211,238,0.1)]"
-            : "border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent hover:border-amber-400/50"
+          isLight
+            ? "border-2 border-zinc-950 bg-[#fef08a] text-zinc-950 shadow-[4px_4px_0_#09090b] hover:bg-[#fde047]"
+            : funMode
+              ? "border-cyan-400/35 bg-gradient-to-r from-cyan-500/15 via-fuchsia-500/10 to-transparent hover:border-cyan-300/60 shadow-[0_0_24px_rgba(34,211,238,0.1)]"
+              : "border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent hover:border-amber-400/50"
         }`}
       >
         <div className="flex items-center gap-3">
           <div
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
-              funMode
-                ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-300"
-                : "border-amber-500/30 bg-amber-500/20 text-amber-300"
+              isLight
+                ? "border-2 border-zinc-950 bg-white text-zinc-950"
+                : funMode
+                  ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-300"
+                  : "border-amber-500/30 bg-amber-500/20 text-amber-300"
             }`}
           >
             <CalendarDays className="h-5 w-5" />
           </div>
           <div>
-            <div className="text-sm font-bold text-zinc-100">Günün Kelimesini Oyna</div>
-            <div className="text-xs text-zinc-400">
+            <div className={`text-sm font-bold ${isLight ? "text-zinc-950" : "text-zinc-100"}`}>Günün Kelimesini Oyna</div>
+            <div className={`text-xs ${isLight ? "text-zinc-800" : "text-zinc-400"}`}>
               Herkes için ortak, her gün yenilenen 5 harfli Türkçe kelime
             </div>
           </div>
         </div>
         <span
-          className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-950 ${
-            funMode ? "bg-cyan-400" : "bg-amber-500"
+          className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold ${
+            isLight
+              ? "border-2 border-zinc-950 bg-[#22c55e] text-zinc-950"
+              : funMode
+                ? "bg-cyan-400 text-zinc-950"
+                : "bg-amber-500 text-zinc-950"
           }`}
         >
           Oyna
@@ -194,9 +205,11 @@ export function GameSetup({ onStartToken, onStartDaily, funMode = false }: GameS
       {/* Oyun Kurma Kartı */}
       <div
         className={`rounded-2xl border p-5 shadow-xl sm:p-6 backdrop-blur-sm ${
-          funMode
-            ? "border-cyan-500/25 bg-[#090d1c]/90 shadow-[0_0_40px_rgba(34,211,238,0.08)]"
-            : "border-zinc-800 bg-[#13161f]"
+          isLight
+            ? "border-2 border-zinc-950 bg-[#13161f] text-zinc-100 shadow-[5px_5px_0_#09090b]"
+            : funMode
+              ? "border-cyan-500/25 bg-[#090d1c]/90 shadow-[0_0_40px_rgba(34,211,238,0.08)]"
+              : "border-zinc-800 bg-[#13161f]"
         }`}
       >
         <div className="mb-5">

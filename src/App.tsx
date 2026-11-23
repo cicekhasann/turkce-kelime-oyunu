@@ -5,12 +5,15 @@ import { GameBoard } from "./components/GameBoard";
 import { GameSetup } from "./components/GameSetup";
 import { Header } from "./components/Header";
 import { HelpModal } from "./components/HelpModal";
+import { PreGameModal } from "./components/PreGameModal";
 import { ResultModal } from "./components/ResultModal";
+import { GameInfoPanel, WailingWallPanel } from "./components/SidePanels";
 import { TurkishKeyboard } from "./components/TurkishKeyboard";
 import { decodeGameConfig, type GameConfig } from "./lib/cipher";
 import { loadWordList, pickDailyWord } from "./lib/dictionary";
-import { mergeKeyboardStates, validateHardModeGuess } from "./lib/evaluator";
+import { evaluateGuess, mergeKeyboardStates, validateHardModeGuess } from "./lib/evaluator";
 import { loadSessionGame, saveSessionGame, type GameStatus } from "./lib/session";
+import { getNextTheme, pickFunReaction, THEMES, type ThemeMode } from "./lib/theme";
 import { parseTurkishKey } from "./lib/turkish";
 
 type RouteState =
@@ -29,7 +32,7 @@ function getRouteFromUrl(): RouteState {
 export function App() {
   const [route, setRoute] = useState<RouteState>(() => getRouteFromUrl());
   const [helpOpen, setHelpOpen] = useState(false);
-  const [funMode, setFunMode] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>("classic");
 
   useEffect(() => {
     const onPopState = () => setRoute(getRouteFromUrl());
@@ -74,20 +77,16 @@ export function App() {
 
   return (
     <div
-      className={`flex flex-col text-zinc-100 transition-colors duration-300 ${
+      className={`flex flex-col transition-colors duration-300 ${
         isGameView ? "h-dvh overflow-hidden" : "min-h-dvh"
-      } ${
-        funMode
-          ? "bg-[#060913] bg-cyber-grid"
-          : "bg-[#0b0d13]"
-      }`}
+      } ${THEMES[theme].pageBg}`}
     >
       <Header
         onOpenSetup={route.mode !== "setup" ? navigateToSetup : undefined}
         onOpenDaily={navigateToDaily}
         onOpenHelp={() => setHelpOpen(true)}
-        funMode={funMode}
-        onToggleFunMode={() => setFunMode((f) => !f)}
+        theme={theme}
+        onCycleTheme={() => setTheme((t) => getNextTheme(t))}
         subtitle={subtitle}
         isDaily={route.mode === "daily"}
       />
@@ -97,7 +96,7 @@ export function App() {
           <GameSetup
             onStartToken={navigateToToken}
             onStartDaily={navigateToDaily}
-            funMode={funMode}
+            theme={theme}
           />
         )}
 
@@ -128,13 +127,14 @@ export function App() {
             key={route.token}
             sessionKey={route.token}
             config={tokenConfig}
-            funMode={funMode}
+            theme={theme}
+            requireStartModal
             onCreateNew={navigateToSetup}
           />
         )}
 
         {route.mode === "daily" && (
-          <DailyGameLoader funMode={funMode} onCreateNew={navigateToSetup} />
+          <DailyGameLoader theme={theme} onCreateNew={navigateToSetup} />
         )}
       </main>
 
@@ -144,10 +144,10 @@ export function App() {
 }
 
 function DailyGameLoader({
-  funMode,
+  theme,
   onCreateNew,
 }: {
-  funMode: boolean;
+  theme: ThemeMode;
   onCreateNew: () => void;
 }) {
   const [daily, setDaily] = useState<{ config: GameConfig; dateStr: string } | null>(null);
@@ -199,7 +199,7 @@ function DailyGameLoader({
       sessionKey={`daily-${daily.dateStr}`}
       config={daily.config}
       dailyDate={daily.dateStr}
-      funMode={funMode}
+      theme={theme}
       onCreateNew={onCreateNew}
     />
   );
@@ -209,7 +209,8 @@ interface ActiveGameProps {
   sessionKey: string;
   config: GameConfig;
   dailyDate?: string;
-  funMode: boolean;
+  theme: ThemeMode;
+  requireStartModal?: boolean;
   onCreateNew: () => void;
 }
 
@@ -224,15 +225,20 @@ function ActiveGame({
   sessionKey,
   config,
   dailyDate,
-  funMode,
+  theme,
+  requireStartModal = false,
   onCreateNew,
 }: ActiveGameProps) {
+  const meta = THEMES[theme];
   const wordLength = Array.from(config.word).length;
   const saved = useMemo(() => loadSessionGame(sessionKey), [sessionKey]);
 
+  const [readyToStart, setReadyToStart] = useState<boolean>(
+    () => !requireStartModal || Boolean(saved)
+  );
   const [guesses, setGuesses] = useState<string[]>(() => saved?.guesses ?? []);
   const [status, setStatus] = useState<GameStatus>(() => saved?.status ?? "playing");
-  const [startedAt] = useState<number>(() => saved?.startedAt ?? Date.now());
+  const [startedAt, setStartedAt] = useState<number>(() => saved?.startedAt ?? Date.now());
   const [finishedAt, setFinishedAt] = useState<number | undefined>(() => saved?.finishedAt);
   const [timedOut, setTimedOut] = useState(() => saved?.timedOut ?? false);
   const [now, setNow] = useState<number>(() => Date.now());
@@ -244,6 +250,7 @@ function ActiveGame({
   );
   const [celebrating, setCelebrating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [mobilePanel, setMobilePanel] = useState<"wall" | "info" | null>(null);
   const [resultOpen, setResultOpen] = useState(
     () => saved?.status !== undefined && saved.status !== "playing"
   );
@@ -252,14 +259,15 @@ function ActiveGame({
 
   // Aktif sekme yenilemesine karşı sessionStorage senkronizasyonu (kalıcı localStorage değil)
   useEffect(() => {
+    if (!readyToStart) return;
     saveSessionGame(sessionKey, { guesses, status, startedAt, finishedAt, timedOut });
-  }, [sessionKey, guesses, status, startedAt, finishedAt, timedOut]);
+  }, [readyToStart, sessionKey, guesses, status, startedAt, finishedAt, timedOut]);
 
   const toastTimerRef = useRef<number | null>(null);
 
   // Canlı kronometre / geri sayım sayacı
   useEffect(() => {
-    if (status !== "playing") return;
+    if (!readyToStart || status !== "playing") return;
     const id = window.setInterval(() => {
       const current = Date.now();
       setNow(current);
@@ -351,6 +359,10 @@ function ActiveGame({
       const doneAt = Date.now();
       setStatus("won");
       setFinishedAt(doneAt);
+      if (theme !== "classic") {
+        const msg = pickFunReaction(wordLength, 0, wordLength, nextGuesses.length, config.maxAttempts, true);
+        if (msg) showToast(msg);
+      }
       const flipFinishDelay = wordLength * 70 + 360;
       window.setTimeout(() => {
         setWonRowIndex(rowIdx);
@@ -362,6 +374,12 @@ function ActiveGame({
       setStatus("lost");
       setFinishedAt(doneAt);
       window.setTimeout(() => setResultOpen(true), wordLength * 70 + 380);
+    } else if (theme !== "classic") {
+      const evalRes = evaluateGuess(currentGuess, config.word);
+      const greens = evalRes.filter((s) => s === "correct").length;
+      const yellows = evalRes.filter((s) => s === "present").length;
+      const msg = pickFunReaction(greens, yellows, wordLength, nextGuesses.length, config.maxAttempts, false);
+      if (msg) showToast(msg);
     }
   }, [
     status,
@@ -373,13 +391,14 @@ function ActiveGame({
     config.hardMode,
     allowedSet,
     guesses,
+    theme,
     triggerShake,
     showToast,
   ]);
 
   const handleInputKey = useCallback(
     (key: string) => {
-      if (status !== "playing" || dictLoading) return;
+      if (!readyToStart || status !== "playing" || dictLoading) return;
 
       if (key === "ENTER") {
         handleSubmit();
@@ -434,15 +453,25 @@ function ActiveGame({
     [guesses, config.word]
   );
 
-  const elapsedSec = Math.max(0, ((finishedAt ?? now) - startedAt) / 1000);
+  const elapsedSec = readyToStart ? Math.max(0, ((finishedAt ?? now) - startedAt) / 1000) : 0;
   const remainingSec =
     config.timeLimitSec > 0 ? Math.max(0, Math.ceil(config.timeLimitSec - elapsedSec)) : null;
   const isUrgent = remainingSec !== null && remainingSec <= 10 && status === "playing";
   const isWarning = remainingSec !== null && remainingSec <= 25 && !isUrgent && status === "playing";
 
   return (
-    <div className="relative mx-auto flex h-full w-full max-w-2xl flex-1 min-h-0 flex-col items-center justify-between gap-2 px-2 py-2 sm:gap-3 sm:px-4 sm:py-3">
-      <ConfettiBurst active={celebrating} />
+    <div className="relative mx-auto flex h-full w-full max-w-[1440px] flex-1 min-h-0 flex-col xl:grid xl:grid-cols-[340px_minmax(0,1fr)_340px] xl:items-stretch xl:gap-6 px-2 py-2 sm:px-5 sm:py-3">
+      <div className="hidden xl:flex xl:flex-col">
+        <WailingWallPanel
+          theme={theme}
+          guessesCount={guesses.length}
+          maxAttempts={config.maxAttempts}
+          status={status}
+        />
+      </div>
+
+      <div className="relative mx-auto flex h-full w-full max-w-2xl flex-1 min-h-0 flex-col items-center justify-between gap-2 sm:gap-3">
+        <ConfettiBurst active={celebrating} />
 
       {/* Bildirim Toast */}
       {toast && (
@@ -453,15 +482,11 @@ function ActiveGame({
 
       {/* Üst Bilgi Çubuğu (HUD) */}
       <div
-        className={`flex shrink-0 w-full max-w-xl items-center justify-between rounded-xl border px-3.5 py-2 sm:px-4 text-xs sm:text-sm shadow-sm transition-colors ${
-          funMode
-            ? "border-cyan-500/30 bg-[#090d1c]/90 backdrop-blur-sm"
-            : "border-zinc-800/90 bg-[#13161f]/90"
-        }`}
+        className={`flex shrink-0 w-full max-w-xl items-center justify-between rounded-xl border px-3.5 py-2 sm:px-4 text-xs sm:text-sm shadow-sm transition-colors ${meta.hudClass}`}
       >
         <div className="flex items-center gap-2 font-mono">
-          <span className="text-zinc-400">Deneme:</span>
-          <span className="font-bold text-zinc-100">
+          <span className={meta.isLight ? "text-zinc-600" : "text-zinc-400"}>Deneme:</span>
+          <span className={`font-bold ${meta.isLight ? "text-zinc-950" : "text-zinc-100"}`}>
             {guesses.length}/{config.maxAttempts}
           </span>
         </div>
@@ -472,9 +497,11 @@ function ActiveGame({
               ? "animate-pulse bg-rose-500/20 text-rose-400 border border-rose-500/40"
               : isWarning
                 ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                : funMode
-                  ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/30"
-                  : "bg-zinc-900 text-emerald-400 border border-zinc-800"
+                : meta.isLight
+                  ? "bg-zinc-950 text-[#facc15] border border-zinc-950"
+                  : theme !== "classic"
+                    ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/30"
+                    : "bg-zinc-900 text-emerald-400 border border-zinc-800"
           }`}
         >
           <Clock className="h-3.5 w-3.5" />
@@ -509,6 +536,26 @@ function ActiveGame({
         </div>
       </div>
 
+      {/* Mobil / Tablet Hızlı Panel Butonları */}
+      <div className="flex xl:hidden shrink-0 w-full max-w-xl items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={() => setMobilePanel("wall")}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition cursor-pointer ${meta.cardInnerClass}`}
+        >
+          <span>😭</span>
+          <span>Ağlama Duvarı</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobilePanel("info")}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition cursor-pointer ${meta.cardInnerClass}`}
+        >
+          <span>ℹ️</span>
+          <span>Oyun Bilgisi & Modlar</span>
+        </button>
+      </div>
+
       {dictLoading ? (
         <div className="my-auto text-xs text-zinc-400">
           {wordLength} harfli Türkçe sözlük yükleniyor...
@@ -523,7 +570,7 @@ function ActiveGame({
             targetWord={config.word}
             shakeRow={shakeRow}
             wonRowIndex={wonRowIndex}
-            funMode={funMode}
+            theme={theme}
           />
           {status !== "playing" && !resultOpen && (
             <button
@@ -541,8 +588,21 @@ function ActiveGame({
       <TurkishKeyboard
         keyStates={keyStates}
         onKey={handleInputKey}
-        disabled={status !== "playing" || dictLoading}
-        funMode={funMode}
+        disabled={!readyToStart || status !== "playing" || dictLoading}
+        theme={theme}
+      />
+
+      <PreGameModal
+        open={!readyToStart}
+        config={config}
+        wordLength={wordLength}
+        theme={theme}
+        onStart={() => {
+          const t = Date.now();
+          setStartedAt(t);
+          setNow(t);
+          setReadyToStart(true);
+        }}
       />
 
       <ResultModal
@@ -551,7 +611,7 @@ function ActiveGame({
         timedOut={timedOut}
         hideAnswerOnLoss={config.hideAnswerOnLoss}
         hardMode={config.hardMode}
-        funMode={funMode}
+        theme={theme}
         dailyDate={dailyDate}
         winMessage={config.winMessage}
         targetWord={config.word}
@@ -562,6 +622,45 @@ function ActiveGame({
         onCreateNew={onCreateNew}
         onClose={() => setResultOpen(false)}
       />
+      </div>
+
+      <div className="hidden xl:flex xl:flex-col">
+        <GameInfoPanel
+          config={config}
+          wordLength={wordLength}
+          isDaily={Boolean(dailyDate)}
+          theme={theme}
+        />
+      </div>
+
+      {mobilePanel && (
+        <div
+          className="fixed inset-0 z-50 flex xl:hidden items-center justify-center bg-black/80 p-3 backdrop-blur-xs"
+          onClick={() => setMobilePanel(null)}
+        >
+          <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            {mobilePanel === "wall" ? (
+              <WailingWallPanel
+                theme={theme}
+                guessesCount={guesses.length}
+                maxAttempts={config.maxAttempts}
+                status={status}
+                inModal
+                onClose={() => setMobilePanel(null)}
+              />
+            ) : (
+              <GameInfoPanel
+                config={config}
+                wordLength={wordLength}
+                isDaily={Boolean(dailyDate)}
+                theme={theme}
+                inModal
+                onClose={() => setMobilePanel(null)}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

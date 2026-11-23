@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseTurkishKey, sanitizeTurkishWord, toTurkishUpper } from "../turkish";
+import { formatDuration, parseTurkishKey, sanitizeTurkishWord, toTurkishUpper } from "../turkish";
 import {
   evaluateGuess,
   generateShareText,
@@ -128,5 +128,14 @@ describe("URL Şifreleme / Çözme", () => {
     });
     expect(decodeGameConfig(token.slice(0, -1))).toBeNull();
     expect(decodeGameConfig("gecersiz-token")).toBeNull();
+  });
+});
+
+describe("Süre Formatı", () => {
+  it("60 saniye ve üzerini dk / dk sn biçiminde gösterir", () => {
+    expect(formatDuration(27)).toBe("27 sn");
+    expect(formatDuration(120)).toBe("2 dk");
+    expect(formatDuration(135)).toBe("2 dk 15 sn");
+    expect(formatDuration(0)).toBe("0 sn");
   });
 });

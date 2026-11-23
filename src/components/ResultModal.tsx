@@ -16,6 +16,8 @@ import {
 import { evaluateGuess, generateShareText, type LetterState } from "../lib/evaluator";
 import { generateShareCardBlob } from "../lib/shareCard";
 import { fetchTdkMeaning, type TdkEntry } from "../lib/tdk";
+import { formatDuration } from "../lib/turkish";
+import { type ThemeMode } from "../lib/theme";
 
 interface ResultModalProps {
   open: boolean;
@@ -23,7 +25,7 @@ interface ResultModalProps {
   timedOut?: boolean;
   hideAnswerOnLoss?: boolean;
   hardMode?: boolean;
-  funMode?: boolean;
+  theme?: ThemeMode;
   dailyDate?: string;
   winMessage?: string;
   targetWord: string;
@@ -65,7 +67,7 @@ export function ResultModal({
   timedOut,
   hideAnswerOnLoss,
   hardMode,
-  funMode,
+  theme = "classic",
   dailyDate,
   winMessage,
   targetWord,
@@ -112,7 +114,6 @@ export function ResultModal({
       won,
       dailyDate,
       hardMode,
-      gameUrl: window.location.href,
     });
     try {
       await navigator.clipboard.writeText(text);
@@ -135,7 +136,7 @@ export function ResultModal({
         elapsedSec: seconds,
         dailyDate,
         hardMode,
-        funMode,
+        theme,
       });
 
       const file = new File([blob], "kelimele-sonuc.png", { type: "image/png" });
@@ -144,7 +145,6 @@ export function ResultModal({
         await navigator.share({
           files: [file],
           title: "Kelimele Sonucum",
-          text: window.location.href,
         });
         setCardStatus("idle");
         return;
@@ -183,9 +183,9 @@ export function ResultModal({
     >
       <div
         className={`relative my-auto w-full max-w-md rounded-2xl border p-5 sm:p-6 text-center shadow-2xl ${
-          funMode
-            ? "border-cyan-500/30 bg-[#090d1c] shadow-[0_0_50px_rgba(34,211,238,0.15)]"
-            : "border-zinc-800 bg-[#13161f]"
+          theme !== "classic"
+            ? "border-cyan-500/30 bg-[#090d1c] text-zinc-100 shadow-[0_0_50px_rgba(34,211,238,0.15)]"
+            : "border-zinc-800 bg-[#13161f] text-zinc-100"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -209,7 +209,7 @@ export function ResultModal({
         <h2 className="text-xl font-bold text-zinc-100">{title}</h2>
         <p className="mt-1 text-xs text-zinc-400">
           {won
-            ? `${guesses.length}/${maxAttempts} denemede çözüldü${seconds ? ` • ${seconds} sn` : ""}${hardMode ? " • Zor Mod" : ""}`
+            ? `${guesses.length}/${maxAttempts} denemede çözüldü${seconds ? ` • ${formatDuration(seconds)}` : ""}${hardMode ? " • Zor Mod" : ""}`
             : timedOut
               ? "Süre dolduğu için oyun sona erdi."
               : `${maxAttempts} tahmin hakkı kullanıldı.`}

@@ -81,3 +81,14 @@ export const MAX_WORD_LENGTH = 8;
 export const MIN_ATTEMPTS = 4;
 export const MAX_ATTEMPTS = 10;
 
+/**
+ * Saniye cinsinden süreyi okunaklı Türkçe biçime çevirir (örn. 120 -> "2 dk", 135 -> "2 dk 15 sn", 27 -> "27 sn").
+ */
+export function formatDuration(totalSeconds: number): string {
+  const clamped = Math.max(0, Math.round(totalSeconds));
+  if (clamped < 60) return `${clamped} sn`;
+  const mins = Math.floor(clamped / 60);
+  const secs = clamped % 60;
+  return secs === 0 ? `${mins} dk` : `${mins} dk ${secs} sn`;
+}
+
